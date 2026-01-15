@@ -1,92 +1,307 @@
-# DeviceAgent
+# DeviceAgent - 设备管理Agent服务
 
+基于 LangGraph 和 FastAPI 的智能设备管理系统，用于控制和管理养殖场景中的各类设备。
 
+## 🎯 项目概述
 
-## Getting started
+DeviceAgent 是一个企业级的设备管理Agent服务，主要用于：
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- **设备控制**：喂食机、摄像头、传感器等设备的智能控制
+- **专家咨询**：集成外部养殖专家系统，提供数据查询和分析建议
+- **意图识别**：自动识别用户意图，路由到对应设备节点
+- **异步处理**：基于FastAPI的异步架构，高性能处理
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## 📁 项目结构
 
 ```
-cd existing_repo
-git remote add origin http://git.singa.id/miao/deviceagent.git
-git branch -M master
-git push -uf origin master
+deviceagent/
+├── api/                    # FastAPI接口层
+│   ├── app.py             # 主应用
+│   └── device_api.py      # 设备管理路由
+├── config/                 # 配置管理
+│   └── settings.py        # 配置文件
+├── enums/                  # 枚举定义
+│   ├── device_type.py     # 设备类型
+│   ├── device_node.py     # 节点枚举
+│   └── operation_status.py # 操作状态
+├── graph/                  # LangGraph工作流
+│   ├── builder.py         # 工作流构建器
+│   ├── nodes.py           # 核心节点
+│   ├── device_nodes.py    # 设备节点
+│   └── schemas.py         # State定义
+├── llms/                   # LLM管理
+│   └── llm_manager.py     # LLM管理器
+├── prompts/                # 提示词库
+│   ├── expert_gate_prompt.md
+│   ├── device_router_prompt.md
+│   ├── feeder_agent_prompt.md
+│   ├── camera_agent_prompt.md
+│   └── sensor_agent_prompt.md
+├── services/               # 服务层
+│   ├── expert_service.py  # 外部专家服务
+│   ├── feeder_service.py  # 喂食机服务
+│   ├── camera_service.py  # 摄像头服务
+│   └── sensor_service.py  # 传感器服务
+├── tools/                  # 工具层
+│   ├── tool_provider.py   # 工具注册器
+│   ├── feeder_tools.py    # 喂食机工具
+│   ├── camera_tools.py    # 摄像头工具
+│   ├── sensor_tools.py    # 传感器工具
+│   └── expert_tools.py    # 专家咨询工具
+├── utils/                  # 工具模块
+│   └── logger.py          # 日志配置
+├── server.py              # 服务启动入口
+├── requirements.txt       # 依赖列表
+└── .env.example          # 环境变量示例
 ```
 
-## Integrate with your tools
+## 🔄 工作流程
 
-- [ ] [Set up project integrations](http://git.singa.id/miao/deviceagent/-/settings/integrations)
+```
+用户请求 
+  ↓
+FastAPI接口 (/api/v1/chat)
+  ↓
+expert_gate_node (判断是否需要专家)
+  ↓ 是：调用专家服务
+  ↓ 否：直接继续
+  ↓
+device_router_node (识别设备类型)
+  ↓
+设备专家节点 (feeder/camera/sensor)
+  ↓ 调用对应工具
+  ↓
+返回执行结果
+```
 
-## Collaborate with your team
+## 🚀 快速开始
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+### 1. 环境要求
 
-## Test and Deploy
+- Python 3.10+
+- pip
 
-Use the built-in continuous integration in GitLab.
+### 2. 安装依赖
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+```bash
+# 创建虚拟环境（推荐）
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# 或
+venv\Scripts\activate  # Windows
 
-***
+# 安装依赖
+pip install -r requirements.txt
+```
 
-# Editing this README
+### 3. 配置环境变量
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!).  Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+# 复制环境变量示例文件
+cp .env.example .env
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+# 编辑 .env 文件，填入你的配置
+vim .env
+```
 
-## Name
-Choose a self-explaining name for your project.
+**必需配置：**
+- `LLM_BASE_URL`: LLM API地址
+- `LLM_API_KEY`: LLM API密钥
+- `EXPERT_API_BASE_URL`: 外部专家服务地址
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+**可选配置：**
+- `FEEDER_API_URL`: 喂食机硬件API地址
+- `CAMERA_API_URL`: 摄像头硬件API地址
+- `SENSOR_API_URL`: 传感器硬件API地址
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### 4. 启动服务
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+python server.py
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+服务将在 `http://0.0.0.0:8000` 启动。
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### 5. 访问文档
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## 📡 API使用示例
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### 设备控制对话
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+```bash
+curl -X POST "http://localhost:8000/api/v1/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "查看喂食记录，判断是否需要喂食并帮我喂一下",
+    "session_id": "test-session-123"
+  }'
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+**响应示例：**
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```json
+{
+  "success": true,
+  "session_id": "test-session-123",
+  "device_type": "feeder",
+  "result": {
+    "success": true,
+    "messages": [
+      "✅ 喂食成功！\n- 喂食量: 50g\n- 喂食机: default\n- 执行时间: 2024-01-10 10:30:00"
+    ]
+  },
+  "error": null
+}
+```
 
-## License
-For open source projects, say how it is licensed.
+### 查看设备状态
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+curl "http://localhost:8000/api/v1/device/status"
+```
+
+### 列出所有工具
+
+```bash
+curl "http://localhost:8000/api/v1/device/tools"
+```
+
+## 🔧 设备类型
+
+### 1. 喂食机 (Feeder)
+
+**关键词：** 喂食、投喂、饲料
+
+**可用工具：**
+- `feed_device`: 立即喂食（按份数，每份约17g）
+
+**示例请求：**
+- "帮我喂食50g" → 自动转换为3份
+- "喂食2份" → 直接喂食2份（约34g）
+- "喂一下" → 使用默认份数
+
+**配置要求：**
+- AIJ_FEEDER_USER: 喂食机账号
+- AIJ_FEEDER_PASS: 喂食机密码
+
+**详细配置**: 参见 [FEEDER_CONFIG.md](FEEDER_CONFIG.md)
+
+### 2. 摄像头 (Camera)
+
+**关键词：** 拍照、视频、监控
+
+**可用工具：**
+- `capture_image`: 拍照
+- `start_streaming`: 开启视频流
+- `stop_streaming`: 关闭视频流
+
+**示例请求：**
+- "拍张照片看看"
+- "打开视频监控"
+- "关闭视频流"
+
+### 3. 传感器 (Sensor)
+
+**关键词：** 温度、PH值、溶氧、盐度、水质
+
+**可用工具：**
+- `read_sensor_data`: 读取指定传感器
+- `read_all_sensors`: 读取所有传感器
+
+**示例请求：**
+- "检测一下水温"
+- "看看PH值"
+- "检测一下水质情况"
+
+## 🧩 架构设计
+
+### 分层架构
+
+```
+┌─────────────────────────────────────┐
+│   Agent Node (决策层)                │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│   Tool (工具层)                      │  ← @tool装饰的函数
+│   - 参数校验                         │
+│   - HTTP请求                         │
+│   - 结果格式化                       │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│   Service (连接管理层)               │  ← 管理HTTP客户端
+│   - 初始化配置                       │
+│   - 提供get_client()                │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│   设备硬件 / 外部API                 │
+└─────────────────────────────────────┘
+```
+
+### 核心特性
+
+- **清晰分层**：Service负责连接，Tool负责操控逻辑
+- **易于扩展**：新增设备只需添加节点+工具+提示词
+- **专家集成**：支持外部专家系统，提供数据查询和分析
+- **异步架构**：全异步实现，高并发支持
+
+## 🛠️ 开发指南
+
+### 添加新设备类型
+
+1. **添加枚举** (`enums/device_type.py`)
+2. **创建Service** (`services/xxx_service.py`)
+3. **创建Tools** (`tools/xxx_tools.py`)
+4. **创建提示词** (`prompts/xxx_agent_prompt.md`)
+5. **创建节点** (`graph/device_nodes.py`)
+6. **注册工具** (`tools/tool_provider.py`)
+7. **更新路由** (`graph/builder.py`)
+
+### 添加新工具
+
+```python
+# tools/xxx_tools.py
+from langchain_core.tools import tool
+from services.xxx_service import xxx_service
+
+@tool
+async def your_tool(param1: str, param2: int) -> str:
+    """工具描述"""
+    client = await xxx_service.get_client()
+    response = await client.post("/api/action", json={...})
+    return f"操作结果: {response.json()}"
+```
+
+## 📝 日志
+
+日志文件位于 `logs/` 目录：
+
+- `deviceagent.log`: 所有日志
+- `error.log`: 错误日志
+
+## 🧪 测试
+
+```bash
+# 健康检查
+curl http://localhost:8000/health
+
+# 查看API文档
+open http://localhost:8000/docs
+```
+
+## 📄 许可证
+
+MIT License
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📧 联系方式
+
+如有问题，请联系项目维护者。

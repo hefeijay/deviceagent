@@ -1,0 +1,55 @@
+"""
+配置管理
+使用pydantic-settings管理环境变量
+"""
+from pydantic_settings import BaseSettings
+from typing import Optional
+
+
+class Settings(BaseSettings):
+    """应用配置"""
+    
+    # ========== 应用基础配置 ==========
+    APP_NAME: str = "DeviceAgent"
+    APP_VERSION: str = "1.0.0"
+    DEBUG: bool = False
+    
+    # ========== LLM配置 ==========
+    LLM_BASE_URL: str
+    LLM_API_KEY: str
+    LLM_MODEL: str = "gpt-4"
+    LLM_TEMPERATURE: float = 0.7
+    
+    # ========== 外部专家服务配置 ==========
+    EXPERT_API_BASE_URL: str = "http://localhost:5003"
+    EXPERT_API_KEY: Optional[str] = None
+    EXPERT_API_TIMEOUT: int = 60
+    
+    # ========== 喂食机IoT API配置 ==========
+    AIJ_FEEDER_USER: str = ""
+    AIJ_FEEDER_PASS: str = ""
+    AIJ_FEEDER_BASE_URL: str = "https://ffish.huaeran.cn:8081/commonRequest"
+    AIJ_FEEDER_TIMEOUT: int = 15
+    
+    # ========== 摄像头硬件API配置 ==========
+    CAMERA_API_URL: str = ""
+    CAMERA_API_KEY: Optional[str] = None
+    CAMERA_TIMEOUT: int = 30
+    
+    # ========== 传感器硬件API配置 ==========
+    SENSOR_API_URL: str = ""
+    SENSOR_API_KEY: Optional[str] = None
+    SENSOR_TIMEOUT: int = 30
+    
+    # ========== 日志配置 ==========
+    LOG_LEVEL: str = "INFO"
+    LOG_PATH: str = "./logs"
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+# 全局配置实例
+settings = Settings()
+
