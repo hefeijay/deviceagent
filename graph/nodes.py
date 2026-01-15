@@ -17,10 +17,10 @@ async def expert_gate_node(state: DeviceState) -> Command[Literal["device_router
     专家判断节点
     判断是否需要咨询外部专家，并实时转发专家的流式输出
     """
-    logger.info("=== 进入专家判断节点 ===")
+    session_id = state["session_id"]
+    logger.info(f"=== 进入专家判断节点 === [Session: {session_id}]")
     
     query = state["query"]
-    session_id = state["session_id"]
     messages = state.get("messages", [])
     event_queue = state.get("event_queue")  # ← 获取事件队列
     
@@ -80,11 +80,11 @@ async def expert_gate_node(state: DeviceState) -> Command[Literal["device_router
                     
                     if result.get("success"):
                         expert_advice = f"🧑‍🏫 专家建议:\n{result.get('answer', '')}"
-                        logger.info(f"专家建议: {expert_advice[:100]}...")
+                        logger.info(f"[Session: {session_id}] 专家建议: {expert_advice[:100]}...")
                     else:
                         error = result.get("error", "未知错误")
                         expert_advice = f"❌ 专家咨询失败: {error}"
-                        logger.error(f"专家咨询失败: {error}")
+                        logger.error(f"[Session: {session_id}] 专家咨询失败: {error}")
                     
                     break
         else:
@@ -132,7 +132,8 @@ async def device_router_node(state: DeviceState) -> Command[
     设备路由节点
     根据请求识别设备类型并路由
     """
-    logger.info("=== 进入设备路由节点 ===")
+    session_id = state["session_id"]
+    logger.info(f"=== 进入设备路由节点 === [Session: {session_id}]")
     
     query = state["query"]
     expert_advice = state.get("expert_advice")
@@ -167,7 +168,7 @@ async def device_router_node(state: DeviceState) -> Command[
         device_type = DeviceType.FEEDER
         target_node = "feeder_agent_node"
     
-    logger.info(f"识别设备类型: {device_type.value}, 路由到: {target_node}")
+    logger.info(f"[Session: {session_id}] 识别设备类型: {device_type.value}, 路由到: {target_node}")
     
     # 推送路由决策事件
     if event_queue:

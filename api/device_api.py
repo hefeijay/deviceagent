@@ -40,8 +40,7 @@ async def chat(device_request: DeviceRequest, request: Request):
         # 使用主Agent传递的会话ID
         session_id = device_request.session_id
         
-        logger.info(f"收到设备任务请求: {device_request.query[:100]}...")
-        logger.info(f"会话ID: {session_id}")
+        logger.info(f"[Session: {session_id}] 收到设备任务请求: {device_request.query[:100]}...")
         
         # 使用预构建的工作流（从 app.state 获取）
         workflow = request.app.state.workflow
@@ -67,7 +66,7 @@ async def chat(device_request: DeviceRequest, request: Request):
         error = final_state.get("error")
         device_type = final_state.get("device_type")
         
-        logger.info(f"任务执行完成: success={success}, device_type={device_type}")
+        logger.info(f"[Session: {session_id}] 任务执行完成: success={success}, device_type={device_type}")
         
         return DeviceResponse(
             success=success,
@@ -99,8 +98,7 @@ async def chat_stream(device_request: DeviceRequest, request: Request):
         try:
             session_id = device_request.session_id
             
-            logger.info(f"收到流式设备任务请求: {device_request.query[:100]}...")
-            logger.info(f"会话ID: {session_id}")
+            logger.info(f"[Session: {session_id}] 收到流式设备任务请求: {device_request.query[:100]}...")
             
             # 创建事件队列
             event_queue = asyncio.Queue()
@@ -164,7 +162,7 @@ async def chat_stream(device_request: DeviceRequest, request: Request):
                             
                             yield f"data: {json.dumps(final_event, ensure_ascii=False)}\n\n"
                             
-                            logger.info(f"流式任务执行完成: success={success}, device_type={device_type}")
+                            logger.info(f"[Session: {session_id}] 流式任务执行完成: success={success}, device_type={device_type}")
                             
                         except Exception as e:
                             logger.error(f"工作流执行失败: {e}", exc_info=True)

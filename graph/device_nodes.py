@@ -11,7 +11,8 @@ from utils.logger import logger
 
 async def feeder_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
     """喂食机专家节点 - 使用预创建的 Agent"""
-    logger.info("=== 进入喂食机专家节点 ===")
+    session_id = state["session_id"]
+    logger.info(f"=== 进入喂食机专家节点 === [Session: {session_id}]")
     
     query = state["query"]
     expert_advice = state.get("expert_advice")
@@ -47,7 +48,7 @@ async def feeder_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
             device_lines = [f"- 设备名称: {dev.get('devName', '未知')}, 设备ID: {dev.get('devID', '未知')}"
                           for dev in devices]
             devices_info = "## 可用设备列表\n\n" + "\n".join(device_lines)
-            logger.info(f"✅ 已获取 {len(devices)} 个设备信息")
+            logger.info(f"[Session: {session_id}] ✅ 已获取 {len(devices)} 个设备信息")
             
             # 推送设备发现事件
             if event_queue:
@@ -57,15 +58,15 @@ async def feeder_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
                     "message": f"✅ 找到 {len(devices)} 个设备"
                 })
         else:
-            logger.warning("⚠️ 未能获取设备列表")
+            logger.warning(f"[Session: {session_id}] ⚠️ 未能获取设备列表")
     except Exception as e:
-        logger.error(f"❌ 获取设备列表失败: {e}")
+        logger.error(f"[Session: {session_id}] ❌ 获取设备列表失败: {e}")
     
     try:
         # 使用预创建的 Agent 执行任务
         from graph.agent_manager import agent_manager
         
-        logger.info(f"ReAct Agent 开始执行: {query[:50]}...")
+        logger.info(f"[Session: {session_id}] ReAct Agent 开始执行: {query[:50]}...")
         
         # 推送Agent开始事件
         if event_queue:
@@ -82,7 +83,7 @@ async def feeder_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
             event_queue=event_queue  # ← 传递事件队列
         )
         
-        logger.info(f"ReAct Agent 执行完成")
+        logger.info(f"[Session: {session_id}] ReAct Agent 执行完成")
         
         # 推送最终消息
         if event_queue and result.get("messages"):
@@ -104,7 +105,7 @@ async def feeder_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
         )
         
     except Exception as e:
-        logger.error(f"喂食机节点失败: {e}", exc_info=True)
+        logger.error(f"[Session: {session_id}] 喂食机节点失败: {e}", exc_info=True)
         
         # 推送错误事件
         if event_queue:
@@ -126,7 +127,8 @@ async def feeder_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
 
 async def camera_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
     """摄像头专家节点 - 使用预创建的 Agent"""
-    logger.info("=== 进入摄像头专家节点 ===")
+    session_id = state["session_id"]
+    logger.info(f"=== 进入摄像头专家节点 === [Session: {session_id}]")
     
     query = state["query"]
     
@@ -134,11 +136,11 @@ async def camera_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
         # 使用预创建的 Agent 执行任务
         from graph.agent_manager import agent_manager
         
-        logger.info(f"ReAct Agent 开始执行: {query[:50]}...")
+        logger.info(f"[Session: {session_id}] ReAct Agent 开始执行: {query[:50]}...")
         
         result = await agent_manager.invoke_camera_agent(query=query)
         
-        logger.info(f"ReAct Agent 执行完成")
+        logger.info(f"[Session: {session_id}] ReAct Agent 执行完成")
         
         return Command(
             update={
@@ -150,7 +152,7 @@ async def camera_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
         )
         
     except Exception as e:
-        logger.error(f"摄像头节点失败: {e}", exc_info=True)
+        logger.error(f"[Session: {session_id}] 摄像头节点失败: {e}", exc_info=True)
         return Command(
             update={
                 "error": str(e),
@@ -163,7 +165,8 @@ async def camera_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
 
 async def sensor_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
     """传感器专家节点 - 使用预创建的 Agent"""
-    logger.info("=== 进入传感器专家节点 ===")
+    session_id = state["session_id"]
+    logger.info(f"=== 进入传感器专家节点 === [Session: {session_id}]")
     
     query = state["query"]
     
@@ -171,11 +174,11 @@ async def sensor_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
         # 使用预创建的 Agent 执行任务
         from graph.agent_manager import agent_manager
         
-        logger.info(f"ReAct Agent 开始执行: {query[:50]}...")
+        logger.info(f"[Session: {session_id}] ReAct Agent 开始执行: {query[:50]}...")
         
         result = await agent_manager.invoke_sensor_agent(query=query)
         
-        logger.info(f"ReAct Agent 执行完成")
+        logger.info(f"[Session: {session_id}] ReAct Agent 执行完成")
         
         return Command(
             update={
@@ -187,7 +190,7 @@ async def sensor_agent_node(state: DeviceState) -> Command[Literal["__end__"]]:
         )
         
     except Exception as e:
-        logger.error(f"传感器节点失败: {e}", exc_info=True)
+        logger.error(f"[Session: {session_id}] 传感器节点失败: {e}", exc_info=True)
         return Command(
             update={
                 "error": str(e),
