@@ -88,6 +88,11 @@ async def chat_stream(device_request: DeviceRequest, request: Request):
     设备控制对话接口（流式版本）
     
     返回 SSE (Server-Sent Events) 格式的流式响应
+    支持完整的中间过程输出，包括：
+    - 节点切换
+    - 工具调用和结果
+    - 专家咨询的完整流程
+    - AI思考过程
     """
     async def event_generator() -> AsyncGenerator[str, None]:
         """生成 SSE 事件流"""
@@ -97,13 +102,16 @@ async def chat_stream(device_request: DeviceRequest, request: Request):
             logger.info(f"收到流式设备任务请求: {device_request.query[:100]}...")
             logger.info(f"会话ID: {session_id}")
             
+            # 创建事件队列
+            event_queue = asyncio.Queue()
+            
             # 发送开始事件
-            yield f"data: {json.dumps({'type': 'start', 'session_id': session_id}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'start', 'session_id': session_id, 'query': device_request.query}, ensure_ascii=False)}\n\n"
             
             # 使用预构建的工作流
             workflow = request.app.state.workflow
             
-            # 准备初始状态
+            # 准备初始状态（包含事件队列）
             initial_state = {
                 "query": device_request.query,
                 "session_id": session_id,
@@ -113,48 +121,58 @@ async def chat_stream(device_request: DeviceRequest, request: Request):
                 "current_node": None,
                 "result": None,
                 "error": None,
-                "stream_mode": True  # 标记为流式模式
+                "stream_mode": True,
+                "event_queue": event_queue  # ← 传递事件队列
             }
             
-            # 流式执行工作流
-            async for event in workflow.astream(initial_state, stream_mode="updates"):
-                # 发送中间状态更新
-                for node_name, node_output in event.items():
-                    logger.info(f"流式输出节点: {node_name}")
+            # 创建工作流执行任务
+            workflow_task = asyncio.create_task(workflow.ainvoke(initial_state))
+            
+            # 同时监听事件队列和工作流完成
+            workflow_done = False
+            
+            while not workflow_done or not event_queue.empty():
+                try:
+                    # 等待事件或超时
+                    event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
                     
-                    # 发送节点更新事件
-                    yield f"data: {json.dumps({'type': 'node_update', 'node': node_name, 'data': _serialize_event(node_output)}, ensure_ascii=False)}\n\n"
+                    # 发送事件
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
                     
-                    # 如果是设备节点的输出，尝试流式输出消息
-                    if "result" in node_output and isinstance(node_output["result"], dict):
-                        result = node_output["result"]
-                        if "messages" in result and result["messages"]:
-                            # 发送 AI 消息内容
-                            for msg in result["messages"]:
-                                if hasattr(msg, "content") and msg.content:
-                                    yield f"data: {json.dumps({'type': 'message', 'content': msg.content, 'source': node_name}, ensure_ascii=False)}\n\n"
-            
-            # 获取最终状态
-            final_state = await workflow.ainvoke(initial_state)
-            
-            # 发送完成事件
-            success = final_state.get("error") is None
-            result = final_state.get("result")
-            error = final_state.get("error")
-            device_type = final_state.get("device_type")
-            
-            final_event = {
-                "type": "done",
-                "success": success,
-                "session_id": session_id,
-                "result": _serialize_event(result),
-                "error": error,
-                "device_type": device_type
-            }
-            
-            yield f"data: {json.dumps(final_event, ensure_ascii=False)}\n\n"
-            
-            logger.info(f"流式任务执行完成: success={success}, device_type={device_type}")
+                except asyncio.TimeoutError:
+                    # 超时，检查工作流是否完成
+                    if workflow_task.done():
+                        workflow_done = True
+                        
+                        try:
+                            final_state = await workflow_task
+                            
+                            # 发送完成事件
+                            success = final_state.get("error") is None
+                            result = final_state.get("result")
+                            error = final_state.get("error")
+                            device_type = final_state.get("device_type")
+                            
+                            final_event = {
+                                "type": "done",
+                                "success": success,
+                                "session_id": session_id,
+                                "result": _serialize_event(result),
+                                "error": error,
+                                "device_type": device_type
+                            }
+                            
+                            yield f"data: {json.dumps(final_event, ensure_ascii=False)}\n\n"
+                            
+                            logger.info(f"流式任务执行完成: success={success}, device_type={device_type}")
+                            
+                        except Exception as e:
+                            logger.error(f"工作流执行失败: {e}", exc_info=True)
+                            error_event = {
+                                "type": "error",
+                                "error": str(e)
+                            }
+                            yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
             
         except Exception as e:
             logger.error(f"流式执行设备任务失败: {e}", exc_info=True)

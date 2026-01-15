@@ -15,13 +15,25 @@ from utils.logger import logger
 async def expert_gate_node(state: DeviceState) -> Command[Literal["device_router_node"]]:
     """
     专家判断节点
-    判断是否需要咨询外部专家
+    判断是否需要咨询外部专家，并实时转发专家的流式输出
     """
     logger.info("=== 进入专家判断节点 ===")
     
     query = state["query"]
     session_id = state["session_id"]
     messages = state.get("messages", [])
+    event_queue = state.get("event_queue")  # ← 获取事件队列
+    
+    # 推送节点进入事件
+    if event_queue:
+        try:
+            event_queue.put_nowait({
+                "type": "node",
+                "node": "expert_gate_node",
+                "message": "📋 进入专家判断节点"
+            })
+        except Exception as e:
+            logger.error(f"推送node事件失败: {e}")
     
     # 加载提示词
     system_prompt = llm_manager.load_prompt(DeviceNode.EXPERT_GATE.get_prompt())
@@ -34,6 +46,13 @@ async def expert_gate_node(state: DeviceState) -> Command[Literal["device_router
         messages = [HumanMessage(content=query)]
     
     try:
+        # 推送LLM判断事件
+        if event_queue:
+            event_queue.put_nowait({
+                "type": "status",
+                "message": "🤔 判断是否需要咨询专家..."
+            })
+        
         # 调用LLM判断
         response = await llm_manager.invoke_with_tools(
             messages=messages,
@@ -46,12 +65,35 @@ async def expert_gate_node(state: DeviceState) -> Command[Literal["device_router
         if hasattr(response, 'tool_calls') and response.tool_calls:
             for tool_call in response.tool_calls:
                 if tool_call['name'] == 'consult_expert':
-                    # 执行专家咨询
-                    expert_tool = DeviceToolFunction.CONSULT_EXPERT.get_func()
-                    result = await expert_tool.ainvoke(tool_call['args'])
-                    expert_advice = result
-                    logger.info(f"专家建议: {expert_advice[:]}...")
+                    # 直接使用 expert_service 的流式方法（支持事件队列）
+                    from services.expert_service import expert_service
+                    
+                    # 提取参数
+                    expert_query = tool_call['args'].get('query', query)
+                    
+                    # 使用流式咨询方法
+                    result = await expert_service.consult_stream(
+                        query=expert_query,
+                        session_id=session_id,
+                        event_queue=event_queue  # ← 传递事件队列
+                    )
+                    
+                    if result.get("success"):
+                        expert_advice = f"🧑‍🏫 专家建议:\n{result.get('answer', '')}"
+                        logger.info(f"专家建议: {expert_advice[:100]}...")
+                    else:
+                        error = result.get("error", "未知错误")
+                        expert_advice = f"❌ 专家咨询失败: {error}"
+                        logger.error(f"专家咨询失败: {error}")
+                    
                     break
+        else:
+            # 不需要咨询专家
+            if event_queue:
+                event_queue.put_nowait({
+                    "type": "status",
+                    "message": "ℹ️ 无需咨询专家，直接处理"
+                })
         
         # 更新状态
         return Command(
@@ -65,6 +107,15 @@ async def expert_gate_node(state: DeviceState) -> Command[Literal["device_router
         
     except Exception as e:
         logger.error(f"专家判断节点失败: {e}", exc_info=True)
+        
+        # 推送错误事件
+        if event_queue:
+            event_queue.put_nowait({
+                "type": "error",
+                "error": str(e),
+                "message": f"❌ 专家判断节点失败: {str(e)}"
+            })
+        
         return Command(
             update={
                 "error": str(e),
@@ -85,6 +136,18 @@ async def device_router_node(state: DeviceState) -> Command[
     
     query = state["query"]
     expert_advice = state.get("expert_advice")
+    event_queue = state.get("event_queue")  # ← 获取事件队列
+    
+    # 推送节点进入事件
+    if event_queue:
+        try:
+            event_queue.put_nowait({
+                "type": "node",
+                "node": "device_router_node",
+                "message": "📋 进入设备路由节点"
+            })
+        except Exception as e:
+            logger.error(f"推送node事件失败: {e}")
     
     # 简单的关键词匹配路由
     query_lower = query.lower()
@@ -105,6 +168,18 @@ async def device_router_node(state: DeviceState) -> Command[
         target_node = "feeder_agent_node"
     
     logger.info(f"识别设备类型: {device_type.value}, 路由到: {target_node}")
+    
+    # 推送路由决策事件
+    if event_queue:
+        try:
+            event_queue.put_nowait({
+                "type": "routing",
+                "device_type": device_type.value,
+                "target_node": target_node,
+                "message": f"🔀 路由到: {device_type.value}"
+            })
+        except Exception as e:
+            logger.error(f"推送routing事件失败: {e}")
     
     return Command(
         update={

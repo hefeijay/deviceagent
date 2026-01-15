@@ -47,15 +47,15 @@ def test_non_stream():
 
 
 def test_stream():
-    """测试流式API"""
+    """测试流式API（完整版 - 包含所有事件类型）"""
     print("=" * 60)
-    print("【流式API测试】")
+    print("【流式API测试 - 完整中间过程展示】")
     print("=" * 60)
     
     url = "http://localhost:8000/api/v1/chat/stream"
     
     payload = {
-        "query": "帮我给AI2喂食1份",
+        "query": "帮我查一下最近的喂食记录判断是否需要喂食，需要的话帮我给AI2喂食2份",
         "session_id": "test-stream-001"
     }
     
@@ -63,11 +63,13 @@ def test_stream():
     print("📡 开始接收流式数据...\n")
     
     start_time = time.time()
+    event_count = 0
     
     try:
-        with requests.post(url, json=payload, stream=True, timeout=60) as response:
+        with requests.post(url, json=payload, stream=True, timeout=120) as response:
             if response.status_code == 200:
                 print("✅ 连接成功，开始接收事件:\n")
+                print("-" * 60)
                 
                 for line in response.iter_lines():
                     if line:
@@ -80,43 +82,96 @@ def test_stream():
                             try:
                                 event = json.loads(data_str)
                                 event_type = event.get('type', 'unknown')
+                                event_count += 1
                                 
                                 current_time = time.time() - start_time
                                 
-                                if event_type == 'start':
-                                    print(f"[{current_time:.2f}s] 🚀 开始处理任务")
-                                    print(f"           Session ID: {event.get('session_id')}")
+                                # 格式化事件输出
+                                timestamp = f"[{current_time:.2f}s #{event_count:03d}]"
                                 
-                                elif event_type == 'node_update':
-                                    node = event.get('node', 'unknown')
-                                    print(f"[{current_time:.2f}s] 🔄 节点更新: {node}")
+                                if event_type == 'start':
+                                    print(f"{timestamp} 🚀 START: {event.get('query', '')[:50]}...")
+                                
+                                elif event_type == 'node':
+                                    print(f"{timestamp} 📋 NODE: {event.get('node', 'unknown')}")
+                                    print(f"              {event.get('message', '')}")
+                                
+                                elif event_type == 'status':
+                                    print(f"{timestamp} ℹ️  STATUS: {event.get('message', '')}")
+                                
+                                elif event_type == 'expert_start':
+                                    print(f"{timestamp} 🧑‍🏫 EXPERT START")
+                                    print(f"              {event.get('message', '')}")
+                                
+                                elif event_type == 'expert_stream':
+                                    content = event.get('content', '')
+                                    preview = content[:80] + "..." if len(content) > 80 else content
+                                    print(f"{timestamp} 📡 EXPERT STREAM: {preview}")
+                                
+                                elif event_type == 'expert_done':
+                                    print(f"{timestamp} ✅ EXPERT DONE")
+                                    print(f"              {event.get('message', '')}")
+                                
+                                elif event_type == 'expert_error':
+                                    print(f"{timestamp} ❌ EXPERT ERROR: {event.get('error', '')}")
+                                
+                                elif event_type == 'routing':
+                                    print(f"{timestamp} 🔀 ROUTING: {event.get('device_type', '')} → {event.get('target_node', '')}")
+                                
+                                elif event_type == 'devices_found':
+                                    print(f"{timestamp} 🔍 DEVICES FOUND: {event.get('count', 0)} 个设备")
+                                
+                                elif event_type == 'agent_start':
+                                    print(f"{timestamp} 🤖 AGENT START: {event.get('agent', '')}")
+                                
+                                elif event_type == 'tool_call':
+                                    tool = event.get('tool', 'unknown')
+                                    args = event.get('args', {})
+                                    print(f"{timestamp} 🔧 TOOL CALL: {tool}")
+                                    print(f"              Args: {json.dumps(args, ensure_ascii=False)[:80]}")
+                                
+                                elif event_type == 'tool_result':
+                                    result = event.get('result', {})
+                                    preview = json.dumps(result, ensure_ascii=False)[:100]
+                                    print(f"{timestamp} 📤 TOOL RESULT: {preview}...")
                                 
                                 elif event_type == 'message':
                                     content = event.get('content', '')
                                     source = event.get('source', 'unknown')
-                                    print(f"[{current_time:.2f}s] 💬 消息来自 {source}:")
-                                    # 只显示前100个字符
-                                    preview = content[:100] + "..." if len(content) > 100 else content
-                                    print(f"           {preview}")
+                                    print(f"{timestamp} 💬 MESSAGE from {source}:")
+                                    # 显示前150个字符
+                                    preview = content[:150] + "..." if len(content) > 150 else content
+                                    print(f"              {preview}")
                                 
                                 elif event_type == 'done':
-                                    print(f"[{current_time:.2f}s] ✅ 任务完成")
-                                    print(f"           Success: {event.get('success')}")
-                                    print(f"           Device Type: {event.get('device_type')}")
+                                    print(f"\n{timestamp} ✅ DONE")
+                                    print(f"              Success: {event.get('success')}")
+                                    print(f"              Device Type: {event.get('device_type')}")
                                     
                                     # 显示完整的最终回复
                                     if event.get('result') and event['result'].get('messages'):
-                                        content = event['result']['messages'][0].get('content', '')
-                                        print(f"\n💬 完整AI回复:\n{content}\n")
+                                        final_msg = event['result']['messages'][0]
+                                        content = final_msg.get('content', '')
+                                        print(f"\n{'=' * 60}")
+                                        print("📄 最终AI回复:")
+                                        print("=" * 60)
+                                        print(content)
+                                        print("=" * 60)
                                 
                                 elif event_type == 'error':
-                                    print(f"[{current_time:.2f}s] ❌ 错误: {event.get('error')}")
+                                    print(f"{timestamp} ❌ ERROR: {event.get('error', '')}")
+                                
+                                else:
+                                    # 其他未知事件类型
+                                    print(f"{timestamp} ❓ {event_type.upper()}: {event.get('message', '')}")
                             
-                            except json.JSONDecodeError:
+                            except json.JSONDecodeError as e:
                                 print(f"⚠️ 无法解析JSON: {data_str[:100]}")
+                                print(f"   错误: {e}")
                 
                 end_time = time.time()
                 print(f"\n⏱️ 总耗时: {end_time - start_time:.2f}秒")
+                print(f"📊 事件总数: {event_count}")
             
             else:
                 print(f"❌ 请求失败: {response.status_code}")
@@ -124,6 +179,8 @@ def test_stream():
     
     except Exception as e:
         print(f"❌ 流式请求异常: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def main():
