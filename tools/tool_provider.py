@@ -5,7 +5,7 @@ from typing import Callable, Any, List, Optional
 from utils.logger import logger
 
 # 导入所有工具
-from tools.feeder_tools import feed_device, get_device_status, get_device_info
+from tools.feeder_tools import feed_device, get_device_info
 from tools.expert_tools import consult_expert
 from tools.camera_tools import capture_image, start_streaming, stop_streaming
 from tools.sensor_tools import read_sensor_data, read_all_sensors
@@ -27,7 +27,7 @@ class DeviceToolFunction(Enum):
     
     # 喂食机工具
     FEED_DEVICE = ToolInfo("feed_device", feed_device, "feeder")
-    GET_DEVICE_STATUS = ToolInfo("get_device_status", get_device_status, "feeder")
+    # GET_DEVICE_STATUS = ToolInfo("get_device_status", get_device_status, "feeder")  # 暂时禁用：API响应问题
     GET_DEVICE_INFO = ToolInfo("get_device_info", get_device_info, "feeder")
     
     # # 摄像头工具

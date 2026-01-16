@@ -90,60 +90,62 @@ def feed_device(**kwargs) -> Dict[str, Any]:
         }
 
 
-@tool(args_schema=DeviceStatusInput)
-def get_device_status(**kwargs) -> Dict[str, Any]:
-    """
-    查询设备的实时状态信息，包括在线状态、电池电量、剩余饲料量、上次喂食份数等。
-    当用户询问设备状态、是否在线、电池电量、剩余饲料等情况时使用此工具。
-    必须提供device_id参数，请先使用list_devices工具获取设备ID。
-    """
-    try:
-        # 从 kwargs 提取参数
-        device_id = kwargs.get('device_id')
-        
-        if not device_id:
-            return {
-                "success": False,
-                "message": "❌ 缺少必需参数 device_id，请先调用 list_devices 获取设备ID"
-            }
-        
-        from services.feeder_service import get_feeder_service
-        service = get_feeder_service()
-        
-        status = service.get_device_status(device_id)
-        
-        if status:
-            # 格式化状态信息
-            status_info = []
-            if 'online' in status:
-                status_info.append(f"在线状态: {'🟢 在线' if status['online'] else '🔴 离线'}")
-            if 'feedAmount' in status:
-                status_info.append(f"上次喂食量: {status['feedAmount']}份")
-            if 'leftover' in status:
-                status_info.append(f"剩余饲料: {status['leftover']}g")
-            if 'battery' in status:
-                status_info.append(f"电池电量: {status['battery']}%")
-            
-            return {
-                "success": True,
-                "device_id": device_id,
-                "status": status,
-                "message": f"📊 设备状态:\n" + "\n".join(status_info)
-            }
-        else:
-            return {
-                "success": False,
-                "device_id": device_id,
-                "status": {},
-                "message": f"❌ 无法查询设备状态"
-            }
-    except Exception as e:
-        logger.error(f"查询设备状态失败: {e}", exc_info=True)
-        return {
-            "success": False,
-            "status": {},
-            "message": f"❌ 查询设备状态失败: {str(e)}"
-        }
+# @tool(args_schema=DeviceStatusInput)
+# def get_device_status(**kwargs) -> Dict[str, Any]:
+#     """
+#     查询设备的实时状态信息，包括在线状态、电池电量、剩余饲料量、上次喂食份数等。
+#     当用户询问设备状态、是否在线、电池电量、剩余饲料等情况时使用此工具。
+#     必须提供device_id参数，请先使用list_devices工具获取设备ID。
+#     
+#     暂时禁用：云端 API msgType 1402 响应问题，导致请求卡住
+#     """
+#     try:
+#         # 从 kwargs 提取参数
+#         device_id = kwargs.get('device_id')
+#         
+#         if not device_id:
+#             return {
+#                 "success": False,
+#                 "message": "❌ 缺少必需参数 device_id，请先调用 list_devices 获取设备ID"
+#             }
+#         
+#         from services.feeder_service import get_feeder_service
+#         service = get_feeder_service()
+#         
+#         status = service.get_device_status(device_id)
+#         
+#         if status:
+#             # 格式化状态信息
+#             status_info = []
+#             if 'online' in status:
+#                 status_info.append(f"在线状态: {'🟢 在线' if status['online'] else '🔴 离线'}")
+#             if 'feedAmount' in status:
+#                 status_info.append(f"上次喂食量: {status['feedAmount']}份")
+#             if 'leftover' in status:
+#                 status_info.append(f"剩余饲料: {status['leftover']}g")
+#             if 'battery' in status:
+#                 status_info.append(f"电池电量: {status['battery']}%")
+#             
+#             return {
+#                 "success": True,
+#                 "device_id": device_id,
+#                 "status": status,
+#                 "message": f"📊 设备状态:\n" + "\n".join(status_info)
+#             }
+#         else:
+#             return {
+#                 "success": False,
+#                 "device_id": device_id,
+#                 "status": {},
+#                 "message": f"❌ 无法查询设备状态"
+#             }
+#     except Exception as e:
+#         logger.error(f"查询设备状态失败: {e}", exc_info=True)
+#         return {
+#             "success": False,
+#             "status": {},
+#             "message": f"❌ 查询设备状态失败: {str(e)}"
+#         }
 
 @tool(args_schema=DeviceInfoInput)
 def get_device_info(**kwargs) -> Dict[str, Any]:
@@ -206,7 +208,7 @@ def get_device_info(**kwargs) -> Dict[str, Any]:
 # 工具列表，用于绑定到 LLM
 FEEDER_TOOLS = [
     feed_device,
-    get_device_status,
+    # get_device_status,  # 暂时禁用：API响应问题
     get_device_info
 ]
 

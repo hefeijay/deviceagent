@@ -5,10 +5,65 @@
 """
 import logging
 import requests
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Callable, TypeVar, cast
+from functools import wraps
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+# 定义泛型类型
+T = TypeVar('T')
+
+
+def auto_retry_on_auth_error(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    装饰器：当遇到 authkey 失效（status=7）时自动重新登录并重试
+    
+    使用场景：
+    - API 返回 status=7（authkey 过期）
+    - 自动清空 authkey
+    - 重新登录获取新 authkey
+    - 重试原操作一次（避免无限递归）
+    """
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # 标记是否是重试调用（避免无限递归）
+        is_retry = kwargs.pop('_is_retry', False)
+        
+        # 第一次尝试
+        result = func(self, *args, **kwargs)
+        
+        # 如果已经是重试调用，直接返回结果
+        if is_retry:
+            return result
+        
+        # 检查是否需要重试（检测 status=7 的情况）
+        need_retry = False
+        
+        # 检查最后一次 API 调用是否返回 status=7
+        if hasattr(self, '_last_api_status') and self._last_api_status == 7:
+            need_retry = True
+            logger.warning(f"⚠️ 检测到 authkey 失效 (status=7)，尝试重新登录...")
+        
+        # 如果需要重试
+        if need_retry and self.authkey:
+            # 清空旧的 authkey
+            old_authkey = self.authkey[:10] if self.authkey else "None"
+            self.authkey = None
+            logger.info(f"🔄 清空旧 authkey: {old_authkey}...")
+            
+            # 尝试重新登录
+            if self.login():
+                logger.info(f"✅ 重新登录成功，authkey: {self.authkey[:10]}..., 重试操作: {func.__name__}")
+                # 标记为重试调用，避免无限递归
+                kwargs['_is_retry'] = True
+                result = func(self, *args, **kwargs)
+            else:
+                logger.error("❌ 重新登录失败，返回失败结果")
+        
+        return result
+    
+    return cast(Callable[..., T], wrapper)
 
 
 class FeederService:
@@ -22,6 +77,7 @@ class FeederService:
         self.timeout = settings.AIJ_FEEDER_TIMEOUT
         self.authkey: Optional[str] = None
         self._session = requests.Session()
+        self._last_api_status: Optional[int] = None  # 记录最后一次API调用的status
         
         if not self.user_id or not self.password:
             logger.warning("未配置喂食机凭证（AIJ_FEEDER_USER/AIJ_FEEDER_PASS）")
@@ -78,7 +134,8 @@ class FeederService:
             logger.error(f"❌ 登录请求失败: {error}")
             return False
     
-    def feed(self, dev_id: str, count: int = 1) -> bool:
+    @auto_retry_on_auth_error
+    def feed(self, dev_id: str, count: int = 1, **kwargs) -> bool:
         """
         执行喂食操作
         
@@ -89,6 +146,9 @@ class FeederService:
         Returns:
             bool: 喂食是否成功
         """
+        # 清理装饰器传递的内部参数
+        kwargs.pop('_is_retry', None)
+        
         if not self.authkey:
             logger.info("未登录，尝试登录...")
             if not self.login():
@@ -108,6 +168,7 @@ class FeederService:
         if result.get("success"):
             data = result.get("data", {})
             status = data.get("status")
+            self._last_api_status = status  # 记录 status
             logger.info(f"API 响应: status={status}, data={data}")
             
             if status == 1:
@@ -122,8 +183,12 @@ class FeederService:
             logger.error(f"❌ 喂食请求失败: {error}")
             return False
     
-    def get_devices(self, page_index: int = 0, page_size: int = 50) -> List[Dict[str, Any]]:
+    @auto_retry_on_auth_error
+    def get_devices(self, page_index: int = 0, page_size: int = 50, **kwargs) -> List[Dict[str, Any]]:
         """获取设备列表"""
+        # 清理装饰器传递的内部参数
+        kwargs.pop('_is_retry', None)
+        
         if not self.authkey:
             logger.info("未登录，尝试登录...")
             if not self.login():
@@ -143,6 +208,7 @@ class FeederService:
         if result.get("success"):
             data = result.get("data", {})
             status = data.get("status")
+            self._last_api_status = status  # 记录 status
             
             if status == 1:
                 devices = data.get("data", [])
@@ -161,7 +227,8 @@ class FeederService:
             logger.error(f"❌ 获取设备列表请求失败: {error}")
             return []
     
-    def get_device_status(self, dev_id: str) -> Optional[Dict[str, Any]]:
+    @auto_retry_on_auth_error
+    def get_device_status(self, dev_id: str, **kwargs) -> Optional[Dict[str, Any]]:
         """
         获取设备状态
         
@@ -171,6 +238,9 @@ class FeederService:
         Returns:
             dict: 设备状态信息，包含 online, battery, leftover, feedAmount 等
         """
+        # 清理装饰器传递的内部参数
+        kwargs.pop('_is_retry', None)
+        
         if not self.authkey:
             logger.info("未登录，尝试登录...")
             if not self.login():
@@ -192,6 +262,7 @@ class FeederService:
         if result.get("success"):
             data = result.get("data", {})
             status = data.get("status")
+            self._last_api_status = status  # 记录 status
             
             if status == 1:
                 device_data = data.get("data", [])
@@ -235,7 +306,7 @@ class FeederService:
         logger.warning(f"⚠️ 未找到设备: {device_name}")
         return None
     
-    def find_device(self, query: str) -> Dict[str, Any]:
+    def find_device(self, query: str) -> Optional[Dict[str, Any]]:
         """
         根据用户输入查找设备
         
@@ -243,15 +314,12 @@ class FeederService:
             query: 用户输入的设备名称或ID
         
         Returns:
-            匹配的设备信息，包含 devID 和 devName（找不到时返回默认设备）
+            匹配的设备信息，包含 devID 和 devName；找不到返回 None
         """
         devices = self.get_devices()
         if not devices:
-            logger.warning("设备列表为空，使用默认设备")
-            return {
-                'devID': self.default_device_id,
-                'devName': self.default_device_name
-            }
+            logger.warning("设备列表为空")
+            return None
         
         query_lower = query.lower().strip()
         
@@ -273,19 +341,8 @@ class FeederService:
                 logger.info(f"✅ 模糊匹配设备名称: {device}")
                 return device
         
-        logger.warning(f"⚠️ 未找到匹配的设备: {query}，使用默认设备")
-        return {
-            'devID': self.default_device_id,
-            'devName': self.default_device_name
-        }
-    
-    def get_default_device_id(self) -> str:
-        """获取默认设备ID"""
-        return self.default_device_id
-    
-    def get_default_device_name(self) -> str:
-        """获取默认设备名称"""
-        return self.default_device_name
+        logger.warning(f"⚠️ 未找到匹配的设备: {query}")
+        return None
     
     def close(self):
         """关闭连接"""
@@ -297,6 +354,7 @@ class FeederService:
 # 全局单例
 _feeder_service: Optional[FeederService] = None
 
+
 def get_feeder_service() -> FeederService:
     """获取喂食机服务单例"""
     global _feeder_service
@@ -304,6 +362,6 @@ def get_feeder_service() -> FeederService:
         _feeder_service = FeederService()
     return _feeder_service
 
+
 # 兼容旧代码
 feeder_service = get_feeder_service()
-
