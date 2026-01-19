@@ -9,7 +9,6 @@ from config.settings import settings
 from utils.logger import logger
 from services import feeder_service, camera_service, sensor_service
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
