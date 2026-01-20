@@ -51,6 +51,26 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_PATH: str = "./logs"
     
+    # ========== MySQL数据库配置 ==========
+    MYSQL_HOST: str = "rm-0iwx9y9q368yc877wbo.mysql.japan.rds.aliyuncs.com"
+    MYSQL_PORT: int = 3306
+    MYSQL_USER: str = "root"
+    MYSQL_PASSWORD: str = "Root155017"
+    MYSQL_DATABASE: str = "cognitive"
+    
+    # ========== 定时任务调度器配置 ==========
+    SCHEDULER_CHECK_INTERVAL: int = 60  # 检查间隔（秒）
+    SCHEDULER_MAX_WORKERS: int = 10     # 最大工作线程数
+    
+    # ========== 时区配置 ==========
+    # TIMEZONE: str = "Asia/Tokyo"  # 日本时区
+    TIMEZONE: str = "Asia/Shanghai"  # 中国时区
+    
+    @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        """构建数据库连接URI"""
+        return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}?charset=utf8mb4"
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

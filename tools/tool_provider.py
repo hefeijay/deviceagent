@@ -5,7 +5,14 @@ from typing import Callable, Any, List, Optional
 from utils.logger import logger
 
 # 导入所有工具
-from tools.feeder_tools import feed_device, get_device_info
+from tools.feeder_tools import (
+    feed_device, 
+    get_device_info,
+    create_schedule_task,
+    update_schedule_task,
+    delete_schedule_task,
+    list_schedule_tasks
+)
 from tools.expert_tools import consult_expert
 from tools.camera_tools import capture_image, start_streaming, stop_streaming
 from tools.sensor_tools import read_sensor_data, read_all_sensors
@@ -25,10 +32,16 @@ class DeviceToolFunction(Enum):
     # 专家咨询工具
     CONSULT_EXPERT = ToolInfo("consult_expert", consult_expert, "expert")
     
-    # 喂食机工具
+    # 喂食机工具 - 即时喂食
     FEED_DEVICE = ToolInfo("feed_device", feed_device, "feeder")
     # GET_DEVICE_STATUS = ToolInfo("get_device_status", get_device_status, "feeder")  # 暂时禁用：API响应问题
     GET_DEVICE_INFO = ToolInfo("get_device_info", get_device_info, "feeder")
+    
+    # 喂食机工具 - 定时任务
+    CREATE_SCHEDULE_TASK = ToolInfo("create_schedule_task", create_schedule_task, "feeder")
+    UPDATE_SCHEDULE_TASK = ToolInfo("update_schedule_task", update_schedule_task, "feeder")
+    DELETE_SCHEDULE_TASK = ToolInfo("delete_schedule_task", delete_schedule_task, "feeder")
+    LIST_SCHEDULE_TASKS = ToolInfo("list_schedule_tasks", list_schedule_tasks, "feeder")
     
     # # 摄像头工具
     # CAPTURE_IMAGE = ToolInfo("capture_image", capture_image, "camera")

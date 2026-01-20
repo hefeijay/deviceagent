@@ -26,7 +26,29 @@ async def lifespan(app: FastAPI):
     app.state.workflow = build_device_workflow()
     logger.info("✅ 工作流已预构建完成")
     
+    # 3. 启动定时任务调度器
+    from scheduler.task_scheduler import get_task_scheduler
+    from services.schedule_service import get_schedule_service
+    
+    task_scheduler = get_task_scheduler()
+    schedule_service = get_schedule_service()
+    
+    # 从数据库加载所有待执行的定时投喂任务
+    try:
+        loaded_count = schedule_service.load_pending_tasks()
+        logger.info(f"📋 从数据库加载了 {loaded_count} 个待执行的定时投喂任务")
+    except Exception as e:
+        logger.warning(f"⚠️ 加载定时任务失败（可能是数据库连接问题）: {e}")
+    
+    # 启动调度器
+    task_scheduler.start()
+    logger.info("✅ 定时任务调度器已启动")
+    
     yield
+    
+    # 关闭定时任务调度器
+    task_scheduler.stop()
+    logger.info("✅ 定时任务调度器已停止")
     
     feeder_service.close()  # 同步方法
     await camera_service.close()
