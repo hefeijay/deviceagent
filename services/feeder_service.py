@@ -3,13 +3,12 @@
 """
 喂食机服务 - 封装IoT API调用
 """
-import logging
+import time
 import requests
 from typing import Dict, Any, Optional, List, Callable, TypeVar, cast
 from functools import wraps
 from config.settings import settings
-
-logger = logging.getLogger(__name__)
+from utils.logger import logger
 
 # 定义泛型类型
 T = TypeVar('T')
@@ -173,6 +172,13 @@ class FeederService:
             
             if status == 1:
                 logger.info(f"✅ 喂食成功: {count}份 -> 设备 {dev_id}")
+                
+                # 上传喂食记录到后端服务器
+                try:
+                    self._upload_feed_record(dev_id, count)
+                except Exception as e:
+                    logger.warning(f"⚠️ 上传喂食记录失败（不影响喂食操作）: {e}")
+                
                 return True
             else:
                 error_msg = data.get("msg") or data.get("message") or "未知错误"
@@ -182,6 +188,41 @@ class FeederService:
             error = result.get("error", "未知错误")
             logger.error(f"❌ 喂食请求失败: {error}")
             return False
+    
+    def _upload_feed_record(self, dev_id: str, feed_count: int):
+        """
+        上传喂食记录到后端服务器
+        
+        Args:
+            dev_id: 设备ID
+            feed_count: 喂食份数
+        """
+        from services.api_client import get_api_client
+        
+        # 获取设备名称作为 feeder_id
+        device = self.find_device(dev_id)
+        feeder_id = device.get('devName', dev_id) if device else dev_id
+        
+        # 计算投喂量（每份约17g）
+        feed_amount_g = feed_count * 17.0
+        
+        # 估算运行时间（假设每份需要约30秒）
+        run_time_s = feed_count * 30
+        
+        # 当前时间戳（毫秒）
+        timestamp_ms = int(time.time() * 1000)
+        
+        api_client = get_api_client()
+        result = api_client.send_feeder_data(
+            feeder_id=feeder_id,
+            feed_amount_g=feed_amount_g,
+            run_time_s=run_time_s,
+            status="ok",
+            notes=f"AI Agent喂食 {feed_count} 份",
+            timestamp=timestamp_ms
+        )
+        
+        logger.info(f"✅ 喂食记录上传成功: feeder_id={feeder_id}, feed_amount_g={feed_amount_g}g, result={result}")
     
     @auto_retry_on_auth_error
     def get_devices(self, page_index: int = 0, page_size: int = 50, **kwargs) -> List[Dict[str, Any]]:

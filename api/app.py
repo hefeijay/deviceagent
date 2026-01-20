@@ -26,10 +26,20 @@ async def lifespan(app: FastAPI):
     app.state.workflow = build_device_workflow()
     logger.info("✅ 工作流已预构建完成")
     
+    # 3. 启动定时投喂调度器
+    from services.feed_scheduler import get_scheduler
+    scheduler = get_scheduler()
+    await scheduler.start()
+    logger.info("✅ 定时投喂调度器已启动")
+    
     yield
     
     # 关闭
     logger.info("关闭服务连接...")
+    
+    # 停止定时投喂调度器
+    await scheduler.stop()
+    
     feeder_service.close()  # 同步方法
     await camera_service.close()
     await sensor_service.close()

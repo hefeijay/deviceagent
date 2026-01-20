@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     SENSOR_API_KEY: Optional[str] = None
     SENSOR_TIMEOUT: int = 30
     
+    # ========== 后端数据上传API配置 ==========
+    BACKEND_API_BASE_URL: str = "http://8.216.33.92:5002"
+    BACKEND_API_TIMEOUT: int = 30
+    BATCH_ID: int = 2
+    POOL_ID: str = "4"
+    
     # ========== 日志配置 ==========
     LOG_LEVEL: str = "INFO"
     LOG_PATH: str = "./logs"
