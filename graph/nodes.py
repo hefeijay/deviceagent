@@ -157,10 +157,7 @@ async def device_router_node(state: DeviceState) -> Command[
         system_prompt = llm_manager.load_prompt(DeviceNode.DEVICE_ROUTER.get_prompt())
         
         # 构建用户提示
-        user_prompt = f"用户请求: {query}\n"
-        if expert_advice:
-            user_prompt += f"专家建议: {expert_advice}\n"
-        user_prompt += "\n请根据用户请求识别设备类型并返回JSON格式的路由决策。"
+        user_prompt = f"用户请求: {query}\n\n请根据用户请求识别设备类型并返回JSON格式的路由决策。"
         
         # 推送LLM判断事件
         if event_queue:

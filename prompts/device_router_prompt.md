@@ -58,8 +58,7 @@
 {
   "target_node": "feeder_agent_node",
   "device_type": "feeder",
-  "original_query": "用户原始请求",
-  "expert_advice": "专家建议（如果有）"
+  "original_query": "用户原始请求"
 }
 ```
 
@@ -67,5 +66,4 @@
 
 - 准确识别设备类型是关键
 - 如果请求涉及多个设备，需要明确处理顺序
-- 将专家建议传递给设备节点
 
