@@ -175,8 +175,6 @@ async def device_router_node(state: DeviceState) -> Command[
             system_prompt=system_prompt
         )
         
-        logger.info(f"[Session: {session_id}] LLM路由响应: {response_text[:200]}...")
-        
         # 解析JSON响应
         device_type = DeviceType.FEEDER  # 默认值
         target_node = "feeder_agent_node"  # 默认值
