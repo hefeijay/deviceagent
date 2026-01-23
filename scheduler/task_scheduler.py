@@ -1,7 +1,7 @@
 """
 定时任务调度器
 参考: ai_japan/src/scheduler/task_scheduler.py
-支持一次性任务和每天循环任务，使用日本时区
+支持一次性任务和每天循环任务，使用系统配置时区
 """
 import json
 import time
@@ -63,8 +63,8 @@ class ScheduledTask:
     
     def _calculate_initial_next_run(self, scheduled_time: datetime) -> Optional[datetime]:
         """计算初始的下次执行时间"""
-        japan_tz = pytz.timezone(settings.TIMEZONE)
-        now = datetime.now(japan_tz)
+        tz = pytz.timezone(settings.TIMEZONE)
+        now = datetime.now(tz)
         
         if self.mode == "daily":
             # daily任务：如果今天时间已过，设为明天
@@ -80,14 +80,14 @@ class ScheduledTask:
             # once任务：直接使用设定的时间
             return scheduled_time
     
-    def calculate_next_run(self, japan_tz) -> Optional[datetime]:
+    def calculate_next_run(self, tz) -> Optional[datetime]:
         """计算下次执行时间"""
         if self.mode == "once":
             # 一次性任务执行后不再执行
             return None
         elif self.mode == "daily":
             # 每天同一时间执行
-            now = datetime.now(japan_tz)
+            now = datetime.now(tz)
             next_time = self.scheduled_time.replace(
                 year=now.year,
                 month=now.month,
@@ -133,7 +133,7 @@ class TaskScheduler:
         self.lock = threading.Lock()
         
         # 时区配置
-        self.japan_tz = pytz.timezone(settings.TIMEZONE)
+        self.tz = pytz.timezone(settings.TIMEZONE)
         
         # 调度配置
         self.check_interval = settings.SCHEDULER_CHECK_INTERVAL
@@ -274,7 +274,7 @@ class TaskScheduler:
         
         while self.running:
             try:
-                now = datetime.now(self.japan_tz)
+                now = datetime.now(self.tz)
                 
                 # 检查需要执行的任务
                 with self.lock:
@@ -298,7 +298,7 @@ class TaskScheduler:
     def _execute_task(self, task: ScheduledTask):
         """执行任务"""
         task.is_running = True
-        task.last_run = datetime.now(self.japan_tz)
+        task.last_run = datetime.now(self.tz)
         task.run_count += 1
         
         logger.info(f"🔄 开始执行任务: {task.task_id}, 设备: {task.device_id}, 份数: {task.feed_count}")
@@ -331,7 +331,7 @@ class TaskScheduler:
             task.is_running = False
             
             # 计算下次执行时间
-            task.next_run = task.calculate_next_run(self.japan_tz)
+            task.next_run = task.calculate_next_run(self.tz)
             
             if task.next_run:
                 logger.info(f"📅 任务 {task.task_id} 下次执行时间: {task.next_run}")

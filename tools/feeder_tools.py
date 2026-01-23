@@ -17,8 +17,8 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# 日本时区
-JAPAN_TZ = pytz.timezone(settings.TIMEZONE)
+# 系统时区
+TZ = pytz.timezone(settings.TIMEZONE)
 
 
 # ==================== Pydantic Schemas ====================
@@ -287,10 +287,10 @@ def create_schedule_task(**kwargs) -> Dict[str, Any]:
             scheduled_time = datetime.fromisoformat(scheduled_time_str)
             if scheduled_time.tzinfo is None:
                 # 如果没有时区，假设是日本时间
-                scheduled_time = JAPAN_TZ.localize(scheduled_time)
+                scheduled_time = TZ.localize(scheduled_time)
             else:
                 # 转换为日本时区
-                scheduled_time = scheduled_time.astimezone(JAPAN_TZ)
+                scheduled_time = scheduled_time.astimezone(TZ)
         except ValueError as e:
             return {
                 "success": False,
@@ -351,9 +351,9 @@ def update_schedule_task(**kwargs) -> Dict[str, Any]:
             try:
                 scheduled_time = datetime.fromisoformat(kwargs['scheduled_time'])
                 if scheduled_time.tzinfo is None:
-                    scheduled_time = JAPAN_TZ.localize(scheduled_time)
+                    scheduled_time = TZ.localize(scheduled_time)
                 else:
-                    scheduled_time = scheduled_time.astimezone(JAPAN_TZ)
+                    scheduled_time = scheduled_time.astimezone(TZ)
                 update_params['scheduled_time'] = scheduled_time
             except ValueError as e:
                 return {

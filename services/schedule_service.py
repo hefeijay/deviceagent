@@ -23,7 +23,7 @@ class ScheduleService:
     
     def __init__(self):
         """初始化服务"""
-        self.japan_tz = pytz.timezone(settings.TIMEZONE)
+        self.tz = pytz.timezone(settings.TIMEZONE)
         logger.info("定时任务管理服务初始化完成")
     
     def _generate_task_id(self) -> str:
@@ -70,7 +70,7 @@ class ScheduleService:
                         "success": result,
                         "device_id": device_id,
                         "feed_count": feed_count,
-                        "executed_at": datetime.now(self.japan_tz).isoformat()
+                        "executed_at": datetime.now(self.tz).isoformat()
                     })
                 )
             
@@ -95,7 +95,7 @@ class ScheduleService:
                     response=json.dumps({
                         "success": False,
                         "error": str(e),
-                        "executed_at": datetime.now(self.japan_tz).isoformat()
+                        "executed_at": datetime.now(self.tz).isoformat()
                     })
                 )
             
@@ -117,7 +117,7 @@ class ScheduleService:
                         "success": success,
                         "device_id": device_id,
                         "feed_count": feed_count,
-                        "executed_at": datetime.now(self.japan_tz).isoformat()
+                        "executed_at": datetime.now(self.tz).isoformat()
                     }
                     if error:
                         execution_record["error"] = error
@@ -145,7 +145,7 @@ class ScheduleService:
                     if response:
                         task.response = response
                     if status == TaskStatus.COMPLETED:
-                        task.completed_at = datetime.now(self.japan_tz)
+                        task.completed_at = datetime.now(self.tz)
                     session.commit()
                     logger.info(f"✅ 任务状态已更新: {task_id} -> {status}")
         except Exception as e:
@@ -175,16 +175,16 @@ class ScheduleService:
             
             # 确保时间带有日本时区
             if scheduled_time.tzinfo is None:
-                scheduled_time = self.japan_tz.localize(scheduled_time)
+                scheduled_time = self.tz.localize(scheduled_time)
             else:
-                scheduled_time = scheduled_time.astimezone(self.japan_tz)
+                scheduled_time = scheduled_time.astimezone(self.tz)
             
             # 检查时间是否在未来（一次性任务）
-            now = datetime.now(self.japan_tz)
+            now = datetime.now(self.tz)
             if mode == TaskMode.ONCE and scheduled_time <= now:
                 return {
                     "success": False,
-                    "message": f"❌ 定时时间必须在未来，当前日本时间: {now.strftime('%Y-%m-%d %H:%M:%S')}"
+                    "message": f"❌ 定时时间必须在未来，当前时间: {now.strftime('%Y-%m-%d %H:%M:%S')}"
                 }
             
             # 构建请求参数
@@ -229,7 +229,7 @@ class ScheduleService:
                 "feed_count": feed_count,
                 "scheduled_time": scheduled_time.strftime("%Y-%m-%d %H:%M:%S %Z"),
                 "mode": mode,
-                "message": f"✅ 定时喂食任务创建成功！\n📅 计划执行时间: {scheduled_time.strftime('%Y-%m-%d %H:%M')} (日本时间)\n🐟 设备: {device_id}\n🍽️ 喂食份数: {feed_count}份"
+                "message": f"✅ 定时喂食任务创建成功！\n🆔 任务ID: {task_id}\n📅 计划执行时间: {scheduled_time.strftime('%Y-%m-%d %H:%M')}\n🐟 设备: {device_id}\n🍽️ 喂食份数: {feed_count}份"
             }
             
         except Exception as e:
@@ -286,9 +286,9 @@ class ScheduleService:
                     request_data["feed_count"] = feed_count
                 if scheduled_time is not None:
                     if scheduled_time.tzinfo is None:
-                        scheduled_time = self.japan_tz.localize(scheduled_time)
+                        scheduled_time = self.tz.localize(scheduled_time)
                     else:
-                        scheduled_time = scheduled_time.astimezone(self.japan_tz)
+                        scheduled_time = scheduled_time.astimezone(self.tz)
                     request_data["scheduled_time"] = scheduled_time.isoformat()
                 if mode is not None:
                     task.mode = mode
@@ -527,9 +527,9 @@ class ScheduleService:
                         # 解析计划执行时间
                         scheduled_time = datetime.fromisoformat(request_data["scheduled_time"])
                         if scheduled_time.tzinfo is None:
-                            scheduled_time = self.japan_tz.localize(scheduled_time)
+                            scheduled_time = self.tz.localize(scheduled_time)
                         
-                        now = datetime.now(self.japan_tz)
+                        now = datetime.now(self.tz)
                         
                         # once任务时间已过，标记为失败
                         if task.mode == TaskMode.ONCE and scheduled_time <= now:

@@ -4,11 +4,15 @@ Agent 管理器 - 预创建和缓存所有设备 Agent
 from typing import Optional, Dict, Any
 import asyncio
 import json
+from datetime import datetime
+
+import pytz
 from langchain.agents import create_agent
 from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import AIMessage
 
+from config.settings import settings
 from llms.llm_manager import llm_manager
 from tools.tool_provider import tool_registry
 from enums.device_node import DeviceNode
@@ -186,11 +190,17 @@ class DeviceAgentManager:
         if not self.feeder_agent:
             raise RuntimeError("喂食机 Agent 未初始化")
         
-        # 构建完整的用户消息（包含设备列表和专家建议）
-        full_message = query
+        # 获取当前时间（使用配置的时区）
+        tz = pytz.timezone(settings.TIMEZONE)
+        current_time = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 构建完整的用户消息（包含当前时间、设备列表和专家建议）
+        full_message = f"当前时间：{current_time}\n\n"
         
         if devices_info:
-            full_message = f"{devices_info}\n\n用户请求：{query}"
+            full_message += f"{devices_info}\n\n"
+        
+        full_message += f"用户请求：{query}"
         
         if expert_advice:
             full_message += f"\n\n专家建议：{expert_advice}"
