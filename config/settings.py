@@ -63,8 +63,8 @@ class Settings(BaseSettings):
     SCHEDULER_MAX_WORKERS: int = 10     # 最大工作线程数
     
     # ========== 时区配置 ==========
-    # TIMEZONE: str = "Asia/Tokyo"  # 日本时区
-    TIMEZONE: str = "Asia/Shanghai"  # 中国时区
+    TIMEZONE: str = "Asia/Tokyo"  # 日本时区
+    # TIMEZONE: str = "Asia/Shanghai"  # 中国时区
     
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:

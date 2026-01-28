@@ -46,7 +46,14 @@ class ScheduledTask:
         self.task_id = task_id
         self.device_id = device_id
         self.feed_count = feed_count
-        self.scheduled_time = scheduled_time
+        
+        # 确保 scheduled_time 使用系统配置的时区
+        tz = pytz.timezone(settings.TIMEZONE)
+        if scheduled_time.tzinfo is None:
+            self.scheduled_time = tz.localize(scheduled_time)
+        else:
+            self.scheduled_time = scheduled_time.astimezone(tz)
+        
         self.mode = mode
         self.execute_func = execute_func
         self.db_id = db_id
@@ -59,12 +66,18 @@ class ScheduledTask:
         self.is_running = False
         
         # 计算初始的 next_run（对于 daily 任务，如果今天时间已过则设为明天）
-        self.next_run = self._calculate_initial_next_run(scheduled_time)
+        self.next_run = self._calculate_initial_next_run(self.scheduled_time)
     
     def _calculate_initial_next_run(self, scheduled_time: datetime) -> Optional[datetime]:
         """计算初始的下次执行时间"""
         tz = pytz.timezone(settings.TIMEZONE)
         now = datetime.now(tz)
+        
+        # 确保 scheduled_time 的时区与系统时区一致
+        if scheduled_time.tzinfo is None:
+            scheduled_time = tz.localize(scheduled_time)
+        else:
+            scheduled_time = scheduled_time.astimezone(tz)
         
         if self.mode == "daily":
             # daily任务：如果今天时间已过，设为明天
@@ -73,11 +86,17 @@ class ScheduledTask:
                 month=now.month,
                 day=now.day
             )
+            # 确保 next_time 也有正确的时区
+            if next_time.tzinfo is None:
+                next_time = tz.localize(next_time)
+            else:
+                next_time = next_time.astimezone(tz)
+            
             if next_time <= now:
                 next_time += timedelta(days=1)
             return next_time
         else:
-            # once任务：直接使用设定的时间
+            # once任务：直接使用设定的时间（已确保时区一致）
             return scheduled_time
     
     def calculate_next_run(self, tz) -> Optional[datetime]:
@@ -88,11 +107,25 @@ class ScheduledTask:
         elif self.mode == "daily":
             # 每天同一时间执行
             now = datetime.now(tz)
-            next_time = self.scheduled_time.replace(
+            
+            # 确保 scheduled_time 的时区与系统时区一致
+            scheduled_time = self.scheduled_time
+            if scheduled_time.tzinfo is None:
+                scheduled_time = tz.localize(scheduled_time)
+            else:
+                scheduled_time = scheduled_time.astimezone(tz)
+            
+            next_time = scheduled_time.replace(
                 year=now.year,
                 month=now.month,
                 day=now.day
             )
+            # 确保 next_time 也有正确的时区
+            if next_time.tzinfo is None:
+                next_time = tz.localize(next_time)
+            else:
+                next_time = next_time.astimezone(tz)
+            
             # 如果今天的时间已过，则安排到明天
             if next_time <= now:
                 next_time += timedelta(days=1)
@@ -216,10 +249,18 @@ class TaskScheduler:
             if 'feed_count' in kwargs:
                 task.feed_count = kwargs['feed_count']
             if 'scheduled_time' in kwargs:
-                task.scheduled_time = kwargs['scheduled_time']
-                task.next_run = kwargs['scheduled_time']
+                # 确保新的 scheduled_time 使用系统配置的时区
+                new_scheduled_time = kwargs['scheduled_time']
+                if new_scheduled_time.tzinfo is None:
+                    task.scheduled_time = self.tz.localize(new_scheduled_time)
+                else:
+                    task.scheduled_time = new_scheduled_time.astimezone(self.tz)
+                # 重新计算 next_run
+                task.next_run = task._calculate_initial_next_run(task.scheduled_time)
             if 'mode' in kwargs:
                 task.mode = kwargs['mode']
+                # 如果模式改变，重新计算 next_run
+                task.next_run = task._calculate_initial_next_run(task.scheduled_time)
             
             logger.info(f"✅ 任务更新成功: {task_id}")
             return True
